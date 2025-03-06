@@ -10,10 +10,14 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private configService: ConfigService,
+  ) {}
 
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
@@ -22,6 +26,8 @@ export class UsersController {
 
   @Get()
   findAll() {
+    const db = this.configService.get<string>('DB');
+    console.log('db', db);
     return this.usersService.findAll();
   }
 
