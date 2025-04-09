@@ -14,6 +14,7 @@ import { createClient } from 'redis';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtModule } from '@nestjs/jwt';
+import { LoggerModule } from 'nestjs-pino';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -49,6 +50,16 @@ import { JwtModule } from '@nestjs/jwt';
             expiresIn: '7d',
           },
         };
+      },
+    }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+          },
+        },
       },
     }),
     PersonModule,
