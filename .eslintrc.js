@@ -24,10 +24,10 @@ module.exports = {
     'prettier/prettier': [
       'error',
       {
-        endOfLine: 'auto',
-        singleQuote: true,
-        trailingComma: 'all',
-        semi: true,
+        "endOfLine": 'auto',
+        "singleQuote": true,
+        "trailingComma": 'all',
+        "semi": true,
       },
     ],
   },
