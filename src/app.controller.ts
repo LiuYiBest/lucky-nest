@@ -3,13 +3,17 @@ import { AppService } from './app.service';
 import { Response } from 'express';
 import { Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRedis } from '@nestjs-modules/ioredis';
+import { Redis } from 'ioredis';
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: AppService, @InjectRedis() private readonly redis: Redis) {}
   @Inject(JwtService)
   private jwtService: JwtService;
   @Get()
   async getHello(): Promise<string> {
+    // const res = await this.redis.get('token');
+    // await this.redis.set('token', '123456', 'EX', 60*10);
     return await this.appService.getHello();
   }
 
