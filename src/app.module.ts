@@ -1,12 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 // import { UserModule } from './user/user.module';
-import { ConfigModule } from '@nestjs/config';
-import * as dotenv from 'dotenv';
-import * as Joi from 'joi';
+// import * as dotenv from 'dotenv';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PersonModule } from './person/person.module';
 import { OtherModule } from './other/other.module';
-const envFilePath = `.env.${process.env.NODE_ENV || `development`}`;
 // import { Person } from './person/entities/person.entity';
 import { UserModule } from './user/user.module';
 import { User } from './user/entities/user.entity';
@@ -15,19 +12,35 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtModule } from '@nestjs/jwt';
 import { LoggerModule } from 'nestjs-pino';
+import { Logger } from 'winston';
+import { ConfigModule } from './common/config/config.module';
+import { LogsModule } from './common/logger/logs.module';
+import { RedisModule } from '@nestjs-modules/ioredis';
+import { MailModule } from './common/mail/templates/mail.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import { UserSchema } from './user/user.schema';
+import { AuthModule } from './auth/auth.module';
+import { AuthService } from './auth/auth.service';
+import { AuthModule } from './auth/auth.module';
+
+@Global()
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath,
-      load: [() => dotenv.config({ path: '.env' })],
-      validationSchema: Joi.object({
-        // NODE_ENV: Joi.string().valid('development', 'production').default('development'),
-        DB_PORT: Joi.number().default(3306),
-        DB_URL: Joi.string().domain(),
-        DB_HOST: Joi.string().ip(),
-      }),
+    ConfigModule,
+    RedisModule.forRoot({
+      type: 'single',
+      url: 'redis://localhost:6379',
+      options: {
+        password: 'root',
+      },
     }),
+    MongooseModule.forRoot('mongodb://localhost:27017/nest'),
+    MongooseModule.forFeature([
+      {
+        name: 'User',
+        schema: UserSchema,
+      },
+    ]),
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: 'localhost',
@@ -55,20 +68,39 @@ import { LoggerModule } from 'nestjs-pino';
     LoggerModule.forRoot({
       pinoHttp: {
         transport: {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-          },
+          targets: [
+            {
+              target: 'pino-roll',
+              options: {
+                file: `log/app.log`,
+                frequency: 'daily',
+                level: 'info',
+                maxSize: '20m',
+                maxFiles: '14d',
+              },
+            },
+            {
+              target: 'pino-pretty',
+              options: {
+                colorize: true,
+              },
+            },
+          ],
         },
       },
     }),
     PersonModule,
     OtherModule,
     UserModule,
+    ConfigModule,
+    LogsModule,
+    MailModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    Logger,
     {
       provide: 'REDIS_CLIENT',
       async useFactory() {
@@ -86,6 +118,7 @@ import { LoggerModule } from 'nestjs-pino';
         return client;
       },
     },
+    AuthService,
   ],
 })
 export class AppModule {}
