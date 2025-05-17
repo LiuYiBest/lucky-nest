@@ -20,6 +20,8 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { AllExceptionFilter } from './common/filters/all-exception.filter';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, VERSION_NEUTRAL, VersioningType } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
 async function bootstrap() {
   // const instance = winston.createLogger({
   //   // options of Winston
@@ -39,45 +41,66 @@ async function bootstrap() {
   //   ],
   // });
   const app = await NestFactory.create(AppModule);
-  const configService = new ConfigService();
+  const configService = app.get(ConfigService);
+
+  // 配置 CORS
   const cors = configService.get('CORS', false);
-  const prefix = configService.get('PREFIX', '/api');
-  const versionStr = configService.get<string>('VERSION', '1.0');
-  let version = [versionStr];
-  if (versionStr.indexOf(',')) {
-    version = versionStr.split(',');
-  }
   if (cors === 'true') {
     app.enableCors();
   }
+
+  // 配置 API 前缀
+  const prefix = configService.get('PREFIX', '/api');
   app.setGlobalPrefix(prefix);
-  // 设置全局版本, 默认版本为不设置
+
+  // 配置 API 版本
+  const versionStr = configService.get<string>('VERSION', '1.0');
+  const version = versionStr.includes(',') ? versionStr.split(',') : [versionStr];
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: typeof versionStr === 'undefined' ? VERSION_NEUTRAL : version,
   });
-  // const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-  //   cors: true,
-  //   // logger: instance,
-  // });
 
-  // 设置全局日志
-  // app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
-  // 设置session
+  // 配置 Session
   app.use(
     session({
-      secret: 'guang',
+      secret: configService.get('SESSION_SECRET', 'your-secret-key'),
       resave: false,
       saveUninitialized: false,
+      cookie: {
+        secure: configService.get('NODE_ENV') === 'production',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      },
     }),
   );
-  // 全局过滤器
-  const errorFilter = app.get(WINSTON_MODULE_NEST_PROVIDER);
-  if (errorFilter === 'true') {
-    const httpAdapterHost = app.get(HttpAdapterHost);
-    app.useGlobalFilters(new AllExceptionFilter(errorFilter, httpAdapterHost));
-  }
-  // const app = await NestFactory.create(AppModule, new FastifyAdapter());
+
+  // 配置全局异常过滤器
+  const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
+  const httpAdapterHost = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new AllExceptionFilter(logger, httpAdapterHost));
+
+  // 配置全局验证管道
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
+
+  // 配置 Swagger
+  const config = new DocumentBuilder()
+    .setTitle('NestJS API')
+    .setDescription('The NestJS API description')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
   // 设置全局中间件
   app.use(function (req: Request, res: Response, next: NextFunction) {
     // console.log('before', req.url);
@@ -89,15 +112,15 @@ async function bootstrap() {
   // // 设置全局过滤器
   // app.useGlobalFilters(new TestFilter());
   // // 设置全局管道
-  app.useGlobalPipes(
-    new ValidationPipe({
-      // whitelist去除多余属性
-      whitelist: true,
-      transform: true,
-    }),
-  );
+  // app.useGlobalPipes(
+  //   new ValidationPipe({
+  //     // whitelist去除多余属性
+  //     whitelist: true,
+  //     transform: true,
+  //   }),
+  // );
   // 设置全局前缀
-  app.setGlobalPrefix('api');
+  // app.setGlobalPrefix('api');
   // 设置静态文件
   // app.useStaticAssets('public', { prefix: '/static' });
   // 设置session
@@ -115,6 +138,9 @@ async function bootstrap() {
   //     },
   //   }),
   // );
-  await app.listen(3000);
+  // 启动应用
+  const port = configService.get('PORT', 3000);
+  await app.listen(port);
+  console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();
