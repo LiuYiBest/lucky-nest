@@ -12,16 +12,13 @@ import * as bcrypt from 'bcrypt';
 export class UserService {
   @InjectEntityManager()
   private manager: EntityManager;
-  
+
   @InjectRepository(User)
   private userRepository: Repository<User>;
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.userRepository.findOne({
-      where: [
-        { username: createUserDto.username },
-        { email: createUserDto.email }
-      ]
+      where: [{ username: createUserDto.username }, { email: createUserDto.email }],
     });
 
     if (existingUser) {
@@ -31,7 +28,7 @@ export class UserService {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     const user = this.userRepository.create({
       ...createUserDto,
-      password: hashedPassword
+      password: hashedPassword,
     });
 
     return this.userRepository.save(user);
@@ -39,14 +36,14 @@ export class UserService {
 
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
-      select: ['id', 'username', 'email', 'isVerified', 'lastLoginAt']
+      select: ['id', 'username', 'email', 'isVerified', 'lastLoginAt'],
     });
   }
 
   async findOne(id: number): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: ['id', 'username', 'email', 'isVerified', 'lastLoginAt']
+      select: ['id', 'username', 'email', 'isVerified', 'lastLoginAt'],
     });
 
     if (!user) {
@@ -58,7 +55,7 @@ export class UserService {
 
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
-    
+
     if (updateUserDto.password) {
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
     }
